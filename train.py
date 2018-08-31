@@ -25,6 +25,7 @@ seq_length = 15 # sequence length
 num_epochs = 8 # number of epochs
 learning_rate = 0.001 #learning rate
 sequences_step = 1 #step to create sequences
+split_number = 100
 
 
 input_file = os.path.join(data_dir, "input.txt")
@@ -63,16 +64,6 @@ for i in range(0, len(x_text) - seq_length, sequences_step):
 
 print('nb sequences:', len(sequences))
 
-
-print('Vectorization.')
-X = np.zeros((len(sequences), seq_length, vocab_size), dtype=np.bool)
-y = np.zeros((len(sequences), vocab_size), dtype=np.bool)
-for i, sentence in enumerate(sequences):
-    for t, word in enumerate(sentence):
-        X[i, t, vocab[word]] = 1
-    y[i, vocab[next_words[i]]] = 1
-
-
 # build the model: a single LSTM
 print('Build LSTM model.')
 model = Sequential()
@@ -84,8 +75,29 @@ model.add(Activation('softmax'))
 optimizer = Adam(lr=learning_rate)
 model.compile(loss='categorical_crossentropy', optimizer=optimizer)
 
+indexes = list(range(len(sequences)))
+nb_to_draw = int(len(sequences)/split_number)
+
+
+print('Vectorization.')
+some_sequences = []
+some_next_words = []
+random.shuffle(indexes)
+for i in range(nb_to_draw):
+    some_sequences.append(sequences[indexes[i]])
+    some_next_words.append(next_words[indexes[i]])
+print('x data size : ', len(some_sequences), ' x ', seq_length, ' x ', vocab_size, ' = ', len(some_sequences)*seq_length*vocab_size/1024/1024, ' Mo')
+print('y data size : ', len(some_sequences), ' x ', vocab_size, ' = ', len(some_sequences)*vocab_size/1024/1024, ' Mo')
+
+X = np.zeros((len(some_sequences), seq_length, vocab_size), dtype=np.bool)
+y = np.zeros((len(some_sequences), vocab_size), dtype=np.bool)
+for i, sentence in enumerate(some_sequences):
+    for t, word in enumerate(sentence):
+        X[i, t, vocab[word]] = 1
+    y[i, vocab[some_next_words[i]]] = 1
+
 #fit the model
-model.fit(X, y,batch_size=batch_size,epochs=num_epochs)
+model.fit(X, y, batch_size=batch_size, epochs=num_epochs)
 
 #save the model
 model.save(save_dir + "/" + 'my_model.h5')
